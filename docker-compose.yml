@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${SERVER_PORT:-8080}:8080" # Use SERVER_PORT from .env or default to 8080 for host
+    environment:
+      # These will override any values in a .env file copied into the image,
+      # and provide values if no .env file is copied.
+      # For the Go app (reads from these env vars via pkg/config)
+      - SERVER_PORT=${SERVER_PORT:-8080} # Port for the app to listen on inside the container
+      - JWT_SECRET=${JWT_SECRET:-averysecurejwtsecret!@#shouldBeLongAndRandom}
+      # DSN for the Go app to connect to the 'db' service
+      - POSTGRES_DSN=postgresql://${DB_USER:-user}:${DB_PASSWORD:-password}@db:5432/${DB_NAME:-go_moon_db}?sslmode=disable&TimeZone=UTC
+      # Redis address for the Go app to connect to the 'redis' service
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-} # Default to empty if not set
+      - REDIS_DB=${REDIS_DB:-0}
+    depends_on:
+      - db
+      - redis
+    # Optional: For development, if you want live-reloading without rebuilding image.
+    # For production, remove this and rely on the image build.
+    # volumes:
+    //   - .:/app # Mounts host code into container, good for dev with tools like Air
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-go_moon_db}
+    ports:
+      - "5433:5432" # Expose DB on host port 5433 (to avoid conflict with local PG)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-go_moon_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379" # Expose Redis on host port 6380
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data: {} # Creates a named volume for PostgreSQL data
+  redis_data: {}    # Creates a named volume for Redis data

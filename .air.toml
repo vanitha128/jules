@@ -1,0 +1,66 @@
+# Config file for Air - https://github.com/cosmtrek/air
+# This file should be in the project root.
+
+# Working directory
+# . or absolute path, please note that the current working directory must be the root of the project.
+root = "."
+tmp_dir = "tmp" # Temporary directory for storing built binaries and logs.
+
+[build]
+# Just plain old shell command. You could use `make` as well.
+cmd = "go build -o ./tmp/app cmd/server/main.go"
+# Binary file yields from `cmd`.
+bin = "./tmp/app"
+# This command will be executed when `bin` is run. Can pass custom environment variables.
+full_bin = "APP_ENV=development ./tmp/app" # Example: pass APP_ENV to your app
+
+# Watch these filename extensions.
+include_ext = ["go", "tpl", "tmpl", "html", "env"] # Added .env to restart on env changes
+# Ignore these filename extensions or directories.
+exclude_dir = ["assets", "tmp", "vendor", "tests", "build", "docs", "node_modules"]
+# Watch these directories if you specified.
+include_dir = []
+# Exclude files.
+exclude_file = []
+# Exclude specific regular expressions.
+exclude_regex = ["_test.go"] # Exclude test files from triggering rebuilds
+
+# This log file includes errors from build process.
+log = "air_errors.log"
+# Poll interval (defaults to 500ms) - increase if CPU usage is high.
+poll_interval = 1000 # ms
+# It's not necessary to trigger build each time file changes if it's too frequent.
+delay = 1000 # ms. Introduce delay before build - useful for batching changes.
+# Stop running old binary when build errors occur.
+stop_on_error = true
+# Send SIGHUP or SIGINT for interrupt process (windows does not support this feature)
+send_interrupt = false # false for default (SIGTERM), true for SIGHUP
+# Delay after sending interrupt signal, give the main process enough time to stop.
+kill_delay = 500 # ms
+
+[log]
+# Show log time
+time = true
+# Only show main log (disable Air specific logs)
+# main_only = false
+
+[color]
+# Customize each part's color. If no color found, use the raw app log.
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+app = "" # Default app output color
+
+[misc]
+# Delete tmp directory on exit
+clean_on_exit = true
+# Conditionally run commands - useful for running linters/formatters before build
+# prep_cmd = ["echo 'Formatting...'", "go fmt ./..."]
+# prep_cmd = ["go fmt ./..."]
+# prep_cmd_on_change = true # Run prep_cmd only when files change
+
+[screen]
+clear_on_rebuild = true
+# stream_stdout = false # Stream stdout from app, default is false (Air buffers it)
+# stream_stderr = false # Stream stderr from app, default is false
