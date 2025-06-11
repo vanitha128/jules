@@ -49,7 +49,10 @@ func (s *userService) Register(ctx context.Context, req RegisterRequest) (*User,
 
 	err = s.userRepo.CreateUser(ctx, newUser)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrEmailAlreadyExists) { // Check for the specific domain error
+			return nil, ErrEmailAlreadyExists
+		}
+		return nil, fmt.Errorf("failed to create user in repository: %w", err) // Wrap other errors
 	}
 
 	// It's good practice to return a User DTO that doesn't include the password.

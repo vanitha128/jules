@@ -33,15 +33,20 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	user, err := h.userService.Register(c.Request.Context(), req)
+	userRegistered, err := h.userService.Register(c.Request.Context(), req) // Renamed user to userRegistered
 	if err != nil {
-		// In a real app, you'd check the error type and return appropriate status codes
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register user"})
+		if errors.Is(err, ErrEmailAlreadyExists) { // Use the error from the user package
+			c.JSON(http.StatusConflict, gin.H{"error": ErrEmailAlreadyExists.Error()})
+		} else {
+			// Log the actual error for server-side diagnostics if desired
+			// log.Printf("Failed to register user: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+		}
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "userID": user.ID})
+	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "userID": userRegistered.ID})
+
 }
 
 // LoginRequest represents the request body for user login.

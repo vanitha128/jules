@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+  "github.com/jackc/pgx/v5/pgconn" // For pgconn.PgError
 )
 
 // postgresUserRepository implements the UserRepository interface using GORM.
@@ -23,11 +24,16 @@ func (r *postgresUserRepository) CreateUser(ctx context.Context, user *User) err
 	// GORM's Create method will set CreatedAt, UpdatedAt if they are time.Time and have `gorm:"autoCreateTime"` etc.
 	// It will also generate UUID if configured for the specific dialect or if `gorm:"default:gen_random_uuid()"` is used
 	// and the database supports it. Since User.ID is uuid.UUID and primary key, GORM handles it well.
-	// We are setting User.ID = uuid.New() in the service layer before calling this.
 	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
-		// TODO: Check for specific GORM errors, like unique constraint violations (e.g., email already exists)
-		// and return a more specific error.
-		return err
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" { // PostgreSQL unique_violation error code
+				// Here, you might want to check pgErr.ConstraintName if you have multiple unique constraints
+				// and want to distinguish them. For now, assuming 23505 on this table/context means email conflict.
+				return ErrEmailAlreadyExists // Use the domain specific error
+			}
+		}
+		return err // Return original error if not a unique violation or not a PgError
 	}
 	return nil
 }

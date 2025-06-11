@@ -117,6 +117,15 @@ func main() {
 		todoRoutes.DELETE("/:todoID", todoHandler.DeleteTodo)
 	}
 
+	// --- Health Check Endpoint ---
+	router.GET("/healthz", func(c *gin.Context) {
+		// TODO: Add more comprehensive health checks (DB, Redis connectivity)
+		// For now, a simple 200 OK indicates the service is running.
+		// db.Ping() or similar could be used here.
+		// redisClient.Ping()
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
+
 	log.Printf("Server starting on port %s...", cfg.ServerPort)
 	if err := router.Run(cfg.ServerPort); err != nil {
 		log.Fatalf("Failed to run server: %v", err)

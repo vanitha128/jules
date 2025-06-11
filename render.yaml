@@ -1,0 +1,51 @@
+# render.yaml
+# Blueprint for deploying the Go Moon application stack to Render.
+
+services:
+  - type: web # Our Go application
+    name: go-moon-app
+    env: docker # Use Docker runtime
+    # repo: https://github.com/YOUR_USERNAME/YOUR_REPONAME.git # Render replaces this when connected
+    # branch: main # Or your default deployment branch, Render uses the one you connect
+    autoDeploy: true # Automatically deploy on push to the connected branch
+    healthCheckPath: /healthz # Application health check endpoint
+    envVars:
+      - key: SERVER_PORT # Render sets the PORT env var, which Gin uses by default if no port is specified in Run()
+        value: "8080"  # Or rely on Render's PORT and ensure your app uses it: os.Getenv("PORT")
+      - key: JWT_SECRET
+        generateValue: true # Let Render generate a secure random value
+      - key: POSTGRES_DSN
+        fromDatabase:
+          name: go-moon-db       # Must match the name of the PostgreSQL service below
+          property: connectionString
+      - key: REDIS_ADDR
+        fromRedis:
+          name: go-moon-redis     # Must match the name of the Redis service below
+          property: connectionString
+      # Add any other application-specific env vars here if they don't have defaults in config.go
+      # e.g., - key: GIN_MODE
+      #        value: release # Set Gin to release mode for production
+    dockerfilePath: ./Dockerfile # Path to your Dockerfile relative to the repo root
+    # dockerContext: . # Context for the Docker build, defaults to repo root
+    # Optional: Instance type (plan)
+    plan: free # Or starter, standard, etc. Free tier has limitations.
+    # Optional: Region
+    # region: oregon # e.g., oregon, frankfurt
+
+  - type: pserv # PostgreSQL Database (pserv for "private service" meaning database)
+    name: go-moon-db
+    env: postgres # Render's managed PostgreSQL environment
+    plan: free # Or your desired plan (e.g., "starter-dev" for paid features)
+    postgresMajorVersion: 15 # Specify major PostgreSQL version
+    # Optional: Disk size, IP allow lists etc.
+    # disk:
+    #   sizeGB: 1 # Minimum for free tier
+    # ipAllowList: [] # Allow all IPs by default, restrict if needed
+
+  - type: redis # Redis Instance
+    name: go-moon-redis
+    plan: free # Or your desired plan
+    # Optional: Maxmemory policy, eviction strategies, IP allow lists etc.
+    # maxmemoryPolicy: allkeys-lru # Example eviction policy
+    # ipAllowList: []
+    # region: oregon # Match your web service region for low latency

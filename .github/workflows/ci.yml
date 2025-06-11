@@ -1,0 +1,136 @@
+name: Go CI Pipeline
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ] # Adjust branch names as needed
+  pull_request:
+    branches: [ "main", "master", "develop" ]
+
+jobs:
+  build-and-test:
+    name: Build, Lint, and Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22' # Using Go 1.22 as per previous toolchain updates
+
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install Tools (golangci-lint)
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH # Ensure tools are in PATH
+
+      - name: Verify Go Modules
+        run: go mod tidy && git diff --exit-code go.mod go.sum # Ensures go.mod/sum are up-to-date
+
+      - name: Vet and Lint
+        run: |
+          go vet ./...
+          golangci-lint run ./...
+
+      - name: Run Unit Tests
+        # This command excludes integration tests by path.
+        # It also generates a coverage report for unit tests.
+        run: go test -v -race -coverprofile=coverage-unit.out $(go list ./... | grep -v /tests/integration)
+
+      - name: Build Application
+        run: go build -v -o ./build/app ./cmd/server/main.go
+
+      # Optional: Upload Unit Test Coverage to Codecov
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4 # Or latest version
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }} # Create this secret in your GitHub repo settings
+      #     files: ./coverage-unit.out
+      #     flags: unittests
+      #     name: codecov-go-moon-unittests # Optional: A name for the report
+      #     fail_ci_if_error: true # Optional
+
+  # Optional: Separate Job for Integration Tests with Services
+  # This job demonstrates how to set up services (PostgreSQL, Redis) needed for integration tests.
+  # integration-tests:
+  #   name: Integration Tests
+  #   runs-on: ubuntu-latest
+  #   needs: build-and-test # Ensure this runs after the build-and-test job
+  #   services:
+  #     postgres:
+  #       image: postgres:15-alpine
+  #       env:
+  #         POSTGRES_USER: testuser
+  #         POSTGRES_PASSWORD: testpassword
+  #         POSTGRES_DB: go_moon_ci_test_db
+  #       ports:
+  #         - 5432:5432 # Map container port to host (runner) port
+  #       options: >- # Healthcheck for PostgreSQL
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #     redis:
+  #       image: redis:7-alpine
+  #       ports:
+  #         - 6379:6379 # Map container port to host (runner) port
+  #       options: >- # Healthcheck for Redis
+  #         --health-cmd "redis-cli ping"
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #   steps:
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.22'
+  #     - name: Check out code
+  #       uses: actions/checkout@v4
+
+  #     - name: Wait for Services
+  #       run: |
+  #         echo "Waiting for PostgreSQL to be ready..."
+  #         # Loop until pg_isready successfully connects or timeout
+  #         timeout=60
+  #         while ! pg_isready -h localhost -p 5432 -U testuser -d go_moon_ci_test_db -q; do
+  #           timeout=$((timeout - 1))
+  #           if [ $timeout -eq 0 ]; then
+  #             echo "PostgreSQL did not become ready in time."
+  #             exit 1
+  #           fi
+  #           sleep 1
+  #         done
+  #         echo "PostgreSQL is ready."
+
+  #         echo "Waiting for Redis to be ready..."
+  #         timeout=30
+  #         while ! redis-cli -h localhost -p 6379 ping | grep -q PONG; do
+  #           timeout=$((timeout-1))
+  #           if [ $timeout -eq 0 ]; then
+  #             echo "Redis did not become ready in time."
+  #             exit 1
+  #           fi
+  #           sleep 1
+  #         done
+  #         echo "Redis is ready."
+
+  #     - name: Run Integration Tests
+  #       env: # Set environment variables for the Go app to connect to services
+  #         # These should match the 'services' block above and your app's config expectations
+  #         POSTGRES_DSN: "postgresql://testuser:testpassword@localhost:5432/go_moon_ci_test_db?sslmode=disable&TimeZone=UTC"
+  #         REDIS_ADDR: "localhost:6379"
+  #         REDIS_PASSWORD: "" # Assuming no password for CI Redis
+  #         REDIS_DB: "0"
+  #         JWT_SECRET: "testjwtsecretforci!@#" # Use a dedicated test secret
+  #         SERVER_PORT: "8081" # Use a different port if your tests run a server, though typically they hit router directly
+  #       run: go test -v -race -coverprofile=coverage-integration.out ./tests/integration/...
+
+      # Optional: Upload Integration Test Coverage to Codecov
+      # - name: Upload integration coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      #     files: ./coverage-integration.out
+      #     flags: integrationtests
+      #     name: codecov-go-moon-integrationtests
+      #     fail_ci_if_error: true

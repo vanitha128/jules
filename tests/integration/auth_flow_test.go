@@ -81,17 +81,9 @@ func TestAuthFlow_UserRegistrationAndLogin(t *testing.T) {
 		// A more specific error handling (e.g. checking for unique constraint violation) would return 409 or 400.
 		// Current User service's Register method does not check for email existence before CreateUser.
 		// The database unique constraint on email will cause CreateUser in repo to fail.
-		// The service will return that error, and handler maps to 500.
-		// This test will likely fail (expect 500) until that's refined.
-		// For now, let's assert based on current behavior (which is likely a generic 500 or specific GORM error).
-		// The user service's Register method:
-		//   err = s.userRepo.CreateUser(ctx, newUser)
-		//   if err != nil { return nil, err } -> This will be a GORM duplicate key error.
-		// The handler's RegisterUser method:
-		//   user, err := h.userService.Register(c.Request.Context(), req)
-		//   if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register user"}) ... }
-		assert.Equal(t, http.StatusInternalServerError, rr.Code) // Based on current error handling
-		assert.Contains(t, body["error"], "failed to register user")
+		// The service now returns ErrEmailAlreadyExists, and the handler maps this to HTTP 409.
+		assert.Equal(t, http.StatusConflict, rr.Code)
+		assert.Equal(t, user.ErrEmailAlreadyExists.Error(), body["error"])
 	})
 
 	t.Run("Login_Success", func(t *testing.T) {
@@ -140,97 +132,113 @@ func TestAuthFlow_UserRegistrationAndLogin(t *testing.T) {
 	})
 }
 
-// Note: More tests for Logout and RefreshToken will follow in subsequent steps.
-// The "Register_Existing_User_Conflict" test highlights a current limitation:
-// the service doesn't return a specific "email already exists" error, leading to a 500.
-// A production system would ideally refine this to a 400 or 409.
-// For the purpose of these integration tests, we test the *current* behavior.
-// The test for conflict currently expects a 500, which is what the current code would produce.
-// If the code were improved to return 409, the test would need to be updated.
-// The current user service's Register method doesn't explicitly check if email exists.
-// The database unique constraint on email will cause userRepo.CreateUser to fail.
-// The user service currently returns this raw error, and the handler maps it to a generic 500.
-// This is a known area for improvement in the application code.
-// The integration test correctly reflects this current state.
-// The performRequest helper has been added.
-// All tests use clearDatabaseTables().
-// The User model is imported from internal/user for request/response structs.
-// The router is taken from baseRouter setup in TestMain.
-// Basic assertions on status codes and response bodies are made.
-// The conflict test for registration currently expects a 500, reflecting current error handling.
-// If the application were updated to return, say, a 409 Conflict, this test would need to change.
-// It's testing the system *as is*.
-// The `clearRedisCache()` is commented out as it's not fully implemented/safe yet.
-// For these specific tests (register/login), Redis isn't directly involved unless for rate limiting,
-// which is not part of this test scope.
-// For Logout/RefreshToken tests, Redis interaction will be critical.
-// The `performRequest` helper simplifies making HTTP requests and parsing JSON response.
-// It assumes JSON request and response bodies.
-// For requests without a body (like GET), `body` param can be `nil`.
-// Headers like Authorization will need to be set directly on `req` in the test cases that need them.
-// For now, only "Content-Type: application/json" is set for POST/PUT.
-// The structure of `performRequest` is suitable for these initial tests.
-// It returns the response recorder and a map for the JSON body for easy assertions.
-// The `require` package from testify is used for fatal assertions (e.g., error checking in setup).
-// The `assert` package is used for test assertions.
-// The `TestAuthFlow_UserRegistrationAndLogin` function groups related tests.
-// Each sub-test uses `t.Run` for better organization and output.
-// `clearDatabaseTables()` is called at the beginning of each sub-test that performs registrations
-// to ensure a clean state and avoid interference between test cases.
-// This is crucial for reliable integration tests.
-// The structure seems fine for the first part of the auth flow.
-// The next parts (Logout, RefreshToken) will build upon this.
-// The conflict test is an important one for user registration.
-// The login tests cover success, wrong password, and user not found scenarios.
-// This provides a good baseline for auth flow integration testing.
-// The helper `performRequest` is set up to handle JSON request and response.
-// This is suitable for a REST API.
-// The use of `baseRouter` from `TestMain` ensures we are testing against the fully configured application.
-// The `clearDatabaseTables` ensures test isolation.
-// The tests are written clearly with arrange-act-assert pattern.
-// The expected status codes and response contents are asserted.
-// The note about the 500 error on duplicate registration is important context.
-// This is a good starting point for the integration tests.
-// The tests cover the happy path and common error cases for registration and login.
-// The `user.RegisterRequest` and `user.LoginRequest` are correctly used from the `internal/user` package.
-// No direct token inspection is done in these specific tests, but the presence of tokens is checked.
-// Later tests (Logout, Refresh) will involve handling and using these tokens.
-// The path `../../.env` in `TestMain` for `LoadConfig` might need adjustment based on where `go test` is run.
-// If run from project root: `.env`. If from `tests/integration`: `../../.env`.
-// The example in `TestMain` uses `LoadConfig(".env")` assuming test execution from project root.
-// This is a common setup.
-// The structure with `TestMain` and helpers is standard for Go integration testing.
-// The use of `baseRouter` means all middleware, actual DB, and actual Cache are used.
-// This makes them true integration tests.
-// The `performRequest` helper is a good utility for these tests.
-// The tests are self-contained and use `clearDatabaseTables` for isolation.
-// This is a good set of tests for the registration and login part of the auth flow.
-// The next steps would be to implement tests for logout, refresh token, etc., as outlined in the prompt.
-// The current code covers item 1a (User Registration and Login) from the prompt.
-// The conflict on registration is correctly identified as an area where the app could be improved (return 409 instead of 500).
-// The tests reflect the *current* behavior.
-// The `performRequest` helper is a good abstraction.
-// The tests are well-structured.
-// The `TestMain` setup is robust for integration tests.
-// The use of `clearDatabaseTables` ensures each test run is isolated.
-// The tests for login with incorrect credentials and non-existent user are important.
-// The successful login test correctly checks for the presence of tokens.
-// This is a solid foundation for further integration tests.
-// The `user` package is imported for the request/response structs.
-// The `baseRouter` is correctly used.
-// The tests are well-organized using `t.Run`.
-// The helper function `performRequest` simplifies the test code.
-// The assertions are clear and check for expected status codes and response bodies.
-// The test for duplicate registration correctly notes the current 500 response and potential for improvement to 409.
-// This is a good first step for the integration tests.
-// All looks good for this part.`tests/integration/auth_flow_test.go` has been created with tests for the "User Registration and Login" flow. It includes:
-- A `performRequest` helper to simplify making HTTP requests and parsing JSON responses.
-- Tests for successful user registration.
-- A test for attempting to register an existing user, noting the current application behavior (returns 500 due to DB constraint, ideally should be 409/400).
-- Tests for successful login.
-- Tests for login with incorrect password and non-existent user.
-- Each relevant test case calls `clearDatabaseTables()` to ensure a clean state.
+// Helper function to register and login a user for auth-related tests, returns tokens and user ID
+func registerAndLoginForAuthTest(t *testing.T, router *gin.Engine, email, password string) (accessToken, refreshToken, userID string) {
+	clearDatabaseTables() // Ensure clean state before this combined operation
+	// clearRedisCache() // If Redis state needs clearing for this specific helper
 
-This covers the first part of the integration tests for the authentication flow. The next steps would be to implement tests for Logout and Refresh Token, followed by User Management and TODO Management flows.
+	dob, _ := time.Parse("2006-01-02", "1990-01-01")
+	registerReq := user.RegisterRequest{
+		Email: email, Password: password, FirstName: "AuthFlow", LastName: "User", DOB: dob,
+	}
+	rrReg, bodyReg := performRequest(router, http.MethodPost, "/users/register", registerReq)
+	require.Equal(t, http.StatusCreated, rrReg.Code, "Registration failed in helper")
+	userID = bodyReg["userID"].(string)
+	require.NotEmpty(t, userID, "UserID not found in registration response in helper")
 
-Given the substantial setup and the first set of tests, I will submit this progress. This establishes the foundation for further integration tests.
+	loginReq := user.LoginRequest{Email: email, Password: password}
+	rrLogin, bodyLogin := performRequest(router, http.MethodPost, "/users/login", loginReq)
+	require.Equal(t, http.StatusOK, rrLogin.Code, "Login failed in helper")
+
+	accessTokenVal, okAccess := bodyLogin["access_token"].(string)
+	require.True(t, okAccess, "Access token not found or not a string in login response")
+	refreshTokenVal, okRefresh := bodyLogin["refresh_token"].(string)
+	require.True(t, okRefresh, "Refresh token not found or not a string in login response")
+
+	require.NotEmpty(t, accessTokenVal, "Access token is empty in helper")
+	require.NotEmpty(t, refreshTokenVal, "Refresh token is empty in helper")
+
+	return accessTokenVal, refreshTokenVal, userID
+}
+
+func TestAuthFlow_Logout(t *testing.T) {
+	router := baseRouter // Use the router from TestMain
+	email := "logout@example.com"
+	password := "password123"
+
+	accessToken, _, _ := registerAndLoginForAuthTest(t, router, email, password)
+
+	// 1. Access a protected route with the access token
+	// The performRequest helper sends JSON, for GET with only headers, make request directly.
+	reqProfile, _ := http.NewRequest(http.MethodGet, "/users/me/profile", nil)
+	reqProfile.Header.Set("Authorization", "Bearer "+accessToken)
+
+	rrProfile := httptest.NewRecorder()
+	router.ServeHTTP(rrProfile, reqProfile)
+	assert.Equal(t, http.StatusOK, rrProfile.Code, "Accessing protected route should succeed before logout")
+
+	// 2. Call /auth/logout with the access token
+	reqLogout, _ := http.NewRequest(http.MethodPost, "/auth/logout", nil)
+	reqLogout.Header.Set("Authorization", "Bearer "+accessToken)
+	rrLogout := httptest.NewRecorder()
+	router.ServeHTTP(rrLogout, reqLogout)
+	assert.Equal(t, http.StatusOK, rrLogout.Code, "Logout request should succeed")
+	// Service returns success message, so 200. If it were 204, no body parsing.
+
+	// 3. Try to access the protected route again with the same access token
+	reqProfileAgain, _ := http.NewRequest(http.MethodGet, "/users/me/profile", nil)
+	reqProfileAgain.Header.Set("Authorization", "Bearer "+accessToken)
+	rrProfileAgain := httptest.NewRecorder()
+	router.ServeHTTP(rrProfileAgain, reqProfileAgain)
+
+	assert.Equal(t, http.StatusUnauthorized, rrProfileAgain.Code, "Accessing protected route should fail after logout")
+	var bodyLogoutAttempt map[string]interface{}
+	err := json.Unmarshal(rrProfileAgain.Body.Bytes(), &bodyLogoutAttempt)
+	require.NoError(t, err, "Failed to parse response body after logout attempt")
+	assert.Contains(t, bodyLogoutAttempt["error"], "Token has been revoked", "Error message should indicate token revocation")
+}
+
+func TestAuthFlow_RefreshToken(t *testing.T) {
+	router := baseRouter // Use the router from TestMain
+	email := "refresh@example.com"
+	password := "password123"
+
+	oldAccessToken, oldRefreshToken, _ := registerAndLoginForAuthTest(t, router, email, password)
+
+	// Use the refresh token to get a new set of tokens
+	refreshReqPayload := gin.H{"refresh_token": oldRefreshToken} // Use gin.H for simple JSON bodies
+	rrRefresh, bodyRefresh := performRequest(router, http.MethodPost, "/auth/refresh", refreshReqPayload)
+	require.Equal(t, http.StatusOK, rrRefresh.Code, "Refresh token request failed")
+
+	newAccessToken, okAccess := bodyRefresh["access_token"].(string)
+	require.True(t, okAccess, "New access token not found or not a string")
+	newRefreshToken, okRefresh := bodyRefresh["refresh_token"].(string)
+	require.True(t, okRefresh, "New refresh token not found or not a string")
+
+	require.NotEmpty(t, newAccessToken, "New access token is empty")
+	require.NotEmpty(t, newRefreshToken, "New refresh token is empty")
+	assert.NotEqual(t, oldAccessToken, newAccessToken, "New access token should be different from old")
+	assert.NotEqual(t, oldRefreshToken, newRefreshToken, "New refresh token should be different from old")
+
+	// Use the *old* refresh token again, should fail as it's blacklisted/invalidated
+	rrOldRefresh, bodyOldRefresh := performRequest(router, http.MethodPost, "/auth/refresh", gin.H{"refresh_token": oldRefreshToken})
+	assert.Equal(t, http.StatusUnauthorized, rrOldRefresh.Code, "Using old refresh token should fail")
+	assert.Contains(t, bodyOldRefresh["error"], "refresh token has been used or revoked", "Error message for used refresh token mismatch")
+
+	// Use the new access token to access a protected route
+	reqProfile, _ := http.NewRequest(http.MethodGet, "/users/me/profile", nil)
+	reqProfile.Header.Set("Authorization", "Bearer "+newAccessToken)
+	rrProfile := httptest.NewRecorder()
+	router.ServeHTTP(rrProfile, reqProfile)
+	assert.Equal(t, http.StatusOK, rrProfile.Code, "Accessing protected route with new access token should succeed")
+
+	// Optional: Try to use an access token as a refresh token
+	rrAccessAsRefresh, bodyAccessAsRefresh := performRequest(router, http.MethodPost, "/auth/refresh", gin.H{"refresh_token": newAccessToken})
+	assert.Equal(t, http.StatusUnauthorized, rrAccessAsRefresh.Code)
+	assert.Contains(t, bodyAccessAsRefresh["error"], "refresh token validation failed")
+
+	// Optional: Try to use a malformed refresh token
+	rrMalformed, bodyMalformed := performRequest(router, http.MethodPost, "/auth/refresh", gin.H{"refresh_token": "this.is.malformed"})
+	assert.Equal(t, http.StatusUnauthorized, rrMalformed.Code)
+	assert.Contains(t, bodyMalformed["error"], "refresh token validation failed")
+}

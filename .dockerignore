@@ -1,0 +1,43 @@
+# Git files
+.git
+.gitignore
+
+# IDE and editor specific
+.vscode/
+.idea/
+*.iml
+
+# Local environment files - manage configuration via Docker Compose or orchestrator environment variables
+.env
+*.env
+*.env.*
+!.env.example # Do not ignore .env.example if you want to copy it (though Dockerfile currently doesn't)
+
+# Local logs and temporary files
+*.log
+tmp/
+temp/
+local_data/
+
+# Test files and mocks (if not needed in the image, though some tests might be run in Docker for CI)
+# For a production image, these are usually excluded.
+*_test.go
+tests/
+mocks/ # If you have a top-level mocks directory
+
+# Go build cache
+bin/
+vendor/ # If you're not using go modules or vendoring explicitly in build
+
+# Docker specific files if they end up in context
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Readme and other markdown files (optional, if not needed in final image)
+*.md
+LICENSE

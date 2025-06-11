@@ -1,0 +1,57 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build artifacts
+*.test
+tmp/
+build/
+local_data/
+
+# Output of the go coverage tool, can be stored in different places
+coverage.out
+coverage.html
+profile.out
+
+# Dependency directories (remove if you use vendoring)
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# Environment configuration files
+.env
+*.env
+*.env.local
+# Important: Keep .env.example in version control as a template!
+!.env.example
+
+# Log files
+*.log
+air_errors.log
+logs/
+# Output files from common tools
+*.out
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Go Module graph cache
+go.sum # Often committed, but can be gitignored in some workflows if go.mod is source of truth and CI always builds.
+       # For this project, let's assume go.sum is committed, so it's not in .gitignore.
+       # If you choose to ignore it, uncomment the line below.
+# go.sum
