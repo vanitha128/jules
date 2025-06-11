@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+  "github.com/jackc/pgx/v5/pgconn" // For pgconn.PgError
 )
 
 // postgresUserRepository implements the UserRepository interface using GORM.
@@ -23,21 +24,6 @@ func (r *postgresUserRepository) CreateUser(ctx context.Context, user *User) err
 	// GORM's Create method will set CreatedAt, UpdatedAt if they are time.Time and have `gorm:"autoCreateTime"` etc.
 	// It will also generate UUID if configured for the specific dialect or if `gorm:"default:gen_random_uuid()"` is used
 	// and the database supports it. Since User.ID is uuid.UUID and primary key, GORM handles it well.
-	"github.com/jackc/pgx/v5/pgconn" // For pgconn.PgError
-)
-
-// postgresUserRepository implements the UserRepository interface using GORM.
-type postgresUserRepository struct {
-	db *gorm.DB
-}
-
-// NewPostgresUserRepository creates a new instance of postgresUserRepository.
-func NewPostgresUserRepository(db *gorm.DB) UserRepository {
-	return &postgresUserRepository{db: db}
-}
-
-// CreateUser creates a new user record in the database.
-func (r *postgresUserRepository) CreateUser(ctx context.Context, user *User) error {
 	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {

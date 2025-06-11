@@ -33,7 +33,6 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	userRegistered, err := h.userService.Register(c.Request.Context(), req) // Renamed user to userRegistered
 	if err != nil {
 		if errors.Is(err, ErrEmailAlreadyExists) { // Use the error from the user package
@@ -47,6 +46,7 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "userID": userRegistered.ID})
+
 }
 
 // LoginRequest represents the request body for user login.
